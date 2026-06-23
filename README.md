@@ -115,6 +115,25 @@ Stop with `Ctrl+C`, or `docker compose down`.
 
 ---
 
+## Try it — example questions
+
+The UI's clickable chips cover the basics — *unemployment rate*, *consumer
+sentiment trend*, *labor-market snapshot*, and *unemployment vs. inflation*.
+Here are more to type in that show off the rest of the tools:
+
+| Question | What it demonstrates |
+|----------|----------------------|
+| *Is U.S. consumer demand strengthening or weakening right now?* | Composite demand read with a deterministic verdict — `get_demand_pulse` |
+| *Give me a snapshot of the housing market.* | Multi-indicator sector snapshot — `get_category_snapshot` |
+| *How have gas prices moved relative to overall inflation over the past 3 years?* | Resolves an unfamiliar topic, then compares two series — `search_series` → `compare_series` |
+| *What are 30-year mortgage rates right now?* | Finds the right series, returns its latest value — `get_latest_value` |
+| *What's the current federal funds rate?* | A clean single latest value on another series |
+
+Every answer cites the FRED **series IDs, units, and dates** it used, so you can
+verify the numbers against [fred.stlouisfed.org](https://fred.stlouisfed.org/).
+
+---
+
 ## Run locally without Docker (dev workflow)
 
 ```powershell
