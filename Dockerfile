@@ -4,11 +4,13 @@
 # CMD below runs the Flask frontend under gunicorn.
 #
 # Security notes (OWASP A05 / LLM03):
-#   - pinned slim base image (pin by digest for stricter supply-chain control)
+#   - base image pinned by digest (multi-arch index) for supply-chain integrity
 #   - runs as a non-root user
 #   - no secrets baked in — keys are passed at runtime via env (see compose)
 # ──────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim
+# Refresh the digest with:
+#   docker buildx imagetools inspect python:3.11-slim --format "{{.Manifest.Digest}}"
+FROM python:3.11-slim@sha256:ae52c5bef62a6bdd42cd1e8dffef86b9cd284bde9427da79839de7a4b983e7ca
 
 # Predictable, log-friendly Python behaviour
 ENV PYTHONDONTWRITEBYTECODE=1 \

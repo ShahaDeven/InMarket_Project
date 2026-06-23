@@ -186,6 +186,7 @@ Inmarket/
 ├── docker-compose.yml     # mcp_server (internal) + web (:5000)
 ├── .dockerignore
 ├── requirements.txt
+├── requirements-dev.txt   # dev/security tooling (pip-audit)
 ├── .env.example           # template — copy to .env (never committed)
 └── README.md
 ```
@@ -202,17 +203,33 @@ Implemented:
   write/delete/shell/filesystem access (OWASP LLM "Excessive Agency").
 - **No SSRF** — the MCP server only ever calls a fixed FRED host; no
   user-supplied URLs.
-- **Container hardening** — non-root user, slim pinned base image, production
-  gunicorn server, and the unauthenticated MCP server is **not exposed** to the
-  host (internal network only). The frontend binds to loopback.
+- **Container hardening** — non-root user, slim base image pinned by digest,
+  production gunicorn server, and the unauthenticated MCP server is **not
+  exposed** to the host (internal network only). The frontend binds to loopback.
 - **Bounded model output** via `max_tokens`.
+- **Output sanitization (XSS)** — the model's answer is rendered to HTML and
+  allowlist-sanitized with `nh3` (no `<script>`/`<img>`, event handlers, or
+  `javascript:` URLs) before it reaches the browser (OWASP LLM05 / A03).
+- **No internal error leakage** — exceptions are logged server-side; the client
+  receives only a generic message (OWASP LLM02).
+- **Security response headers** — `Content-Security-Policy`, `X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy` on every
+  response (OWASP A05).
+- **Request & error logging** — every request (method, path, status, latency)
+  and any failures are logged server-side (OWASP A09).
+- **Pinned & audited dependencies** — all direct deps are pinned to exact
+  versions and the Docker base image is pinned by digest; `pip-audit` reports no
+  known CVEs (OWASP LLM03 / A06). Re-check with `pip-audit -r requirements.txt`.
 
 Planned hardening (tracked against OWASP Web + LLM Top 10):
 
-- Sanitize the Markdown→HTML answer output (XSS).
-- Generic client-facing errors (no raw exception text).
-- Rate limiting + input-length cap + bounded tool parameters.
-- Security response headers (CSP, X-Frame-Options, …) and request logging.
+- Rate limiting + input-length cap + bounded tool parameters (OWASP LLM10).
+
+References : 
+
+OWASP TOP 10 :-
+ - https://genai.owasp.org/llm-top-10/
+ - https://owasp.org/Top10/2025/
 
 ---
 

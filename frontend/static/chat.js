@@ -90,8 +90,8 @@
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Request failed");
-      // answer_html is server-rendered Markdown (sanitization is a planned
-      // security-pass item — see frontend/app.py).
+      // answer_html is server-rendered Markdown, allowlist-sanitized with nh3
+      // server-side before it reaches the browser — safe to inject (OWASP LLM05).
       botEl.querySelector(".msg__content").innerHTML = data.answer_html;
       renderTools(botEl, data.tool_calls);
     } catch (err) {

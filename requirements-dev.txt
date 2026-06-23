@@ -1,0 +1,5 @@
+# Development / security tooling (not needed at runtime).
+#   pip install -r requirements-dev.txt
+#   pip-audit -r requirements.txt     # scan declared deps for known CVEs (OWASP LLM03/A06)
+-r requirements.txt
+pip-audit>=2.7.0
