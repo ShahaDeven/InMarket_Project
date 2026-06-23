@@ -1,0 +1,43 @@
+# Keep secrets, local envs, and bloat OUT of the build context / image.
+# Defense in depth: even if the Dockerfile were changed to `COPY . .`,
+# the .env would never be included.
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Git / VCS
+.git
+.gitignore
+
+# Virtual envs
+.venv
+venv
+env
+
+# Python caches
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docs / large artifacts not needed at runtime
+*.md
+Challenge_Project_-_AI_Builder.pdf
+*.log
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+docker-compose.yml

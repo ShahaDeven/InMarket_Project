@@ -1,0 +1,49 @@
+# ──────────────────────────────────────────────────────────────────────
+# InMarket — two services from one image.
+#
+#   mcp_server : FastMCP wrapper around FRED. INTERNAL ONLY (no published
+#                port) — nothing outside the compose network can call the
+#                unauthenticated tools (OWASP A01 / A05).
+#   web        : Flask + in-process LangGraph agent. The ONLY service exposed
+#                to the host (:5000). Reaches the MCP server by service name.
+#
+# Secrets are interpolated from the local ./.env at runtime (least privilege:
+# each service only receives the keys it needs) and are never baked into the
+# image (see .dockerignore).
+# ──────────────────────────────────────────────────────────────────────
+services:
+  mcp_server:
+    build: .
+    image: inmarket
+    command: python -m mcp_server.server
+    environment:
+      FRED_API_KEY: ${FRED_API_KEY:?set FRED_API_KEY in .env}
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build: .
+    image: inmarket
+    depends_on:
+      mcp_server:
+        condition: service_healthy
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      MCP_SERVER_URL: "http://mcp_server:8000/mcp/"
+    ports:
+      - "127.0.0.1:5000:5000"   # frontend only, loopback (same machine as the host)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/')"]
+      interval: 15s
+      timeout: 4s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped

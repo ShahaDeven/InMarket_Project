@@ -17,3 +17,5 @@ langchain-mcp-adapters>=0.1.0
 # --- Frontend (frontend/) ---
 flask>=3.0.0
 markdown>=3.6
+gunicorn>=21.2.0   # production WSGI server — used in the Docker image (Linux);
+                   # local dev on Windows uses `python -m frontend.app` instead.
