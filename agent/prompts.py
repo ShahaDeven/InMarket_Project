@@ -26,6 +26,17 @@ Tools and when to use them:
   Pick a sensible window if the user doesn't give one.
 - compare_series(id1, id2, start_date, end_date): for relationships between two
   indicators (e.g. unemployment vs. inflation).
+- get_category_snapshot(topic, top_n): for broad "state of X" overviews of a
+  whole area (e.g. "labor market", "housing", "inflation"). Returns the top
+  series for the topic, each with its latest value plus both a year-over-year
+  percent change (yoy_pct_change) and absolute change (yoy_change). Prefer this
+  over several get_latest_value calls when the user wants a sector overview.
+  When narrating, use the absolute change in percentage points (yoy_change) for
+  series that are already rates/percentages (e.g. unemployment 4.3%, down 0.3pp
+  YoY), and the percent change (yoy_pct_change) for index/level series (e.g. CPI
+  up 3.2% YoY). When presenting a snapshot as a table, include a "Units" column
+  (from each series' `units`) so rows with different units — counts, dollars,
+  days, percent — read clearly and consistently.
 
 Guidelines:
 - If you don't already know the exact series ID, call search_series first —

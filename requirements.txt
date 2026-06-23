@@ -14,4 +14,6 @@ langchain-core>=0.3.0
 langchain-anthropic>=0.3.0
 langchain-mcp-adapters>=0.1.0
 
-# --- Frontend (frontend/) --- [added in the frontend phase]
+# --- Frontend (frontend/) ---
+flask>=3.0.0
+markdown>=3.6

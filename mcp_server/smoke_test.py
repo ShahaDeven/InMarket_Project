@@ -50,6 +50,13 @@ async def run(target) -> None:
             "search_series", {"keyword": "consumer sentiment", "limit": 3}
         )
         print(" ", _unwrap(found))
+        print()
+
+        print("get_category_snapshot('labor market', top_n=4):")
+        snapshot = await client.call_tool(
+            "get_category_snapshot", {"topic": "labor market", "top_n": 4}
+        )
+        print(" ", _unwrap(snapshot))
 
 
 def main() -> None:

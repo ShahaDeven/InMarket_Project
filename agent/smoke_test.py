@@ -16,6 +16,7 @@ QUESTIONS = [
     "What's the current U.S. unemployment rate?",
     "How has consumer sentiment changed over the past year?",
     "Compare unemployment and inflation since 2020.",
+    "How's the labor market doing?",
 ]
 
 

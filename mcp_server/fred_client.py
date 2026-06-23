@@ -88,11 +88,16 @@ class FredClient:
         end_date: Optional[str] = None,
         sort_order: str = "asc",
         limit: Optional[int] = None,
+        units: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """Return a list of {date, value} observations for a series.
 
         Missing values ("." in FRED) are returned as None rather than dropped,
         so date alignment is preserved for comparisons.
+
+        `units` applies a FRED-native transform to the values, e.g. "pc1"
+        (percent change from a year ago / YoY) or "pch" (period-over-period
+        percent change). Defaults to raw levels ("lin").
         """
         params: dict[str, Any] = {"series_id": series_id, "sort_order": sort_order}
         if start_date:
@@ -101,6 +106,8 @@ class FredClient:
             params["observation_end"] = end_date
         if limit:
             params["limit"] = limit
+        if units:
+            params["units"] = units
 
         data = await self._get("series/observations", params)
         observations: list[dict[str, Any]] = []

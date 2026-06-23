@@ -15,8 +15,9 @@ It serves Streamable HTTP at  http://<MCP_HOST>:<MCP_PORT>/mcp/
 """
 from __future__ import annotations
 
+import asyncio
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
@@ -140,6 +141,71 @@ async def compare_series(
         "series_1": first,
         "series_2": second,
     }
+
+
+@mcp.tool
+async def get_category_snapshot(topic: str, top_n: int = 6) -> dict:
+    """Build a multi-indicator "state of X" snapshot for an economic topic.
+
+    Use this for broad overview questions like "how's the labor market?",
+    "give me a housing snapshot", or "state of inflation". It finds the most
+    popular FRED series for the topic and, for each, returns the latest value
+    plus the year-over-year percent change (FRED-native `pc1` transform) — so
+    you can narrate a whole sector in one call instead of fetching series
+    one by one.
+
+    Args:
+        topic: An economic area or sector, e.g. "labor market", "housing",
+            "inflation", "consumer spending".
+        top_n: How many top series to include (default 6).
+
+    Returns a dict with the topic, an `as_of` date, and a `series` list where
+    each item has: series_id, title, units, frequency, latest_value,
+    latest_date, yoy_pct_change (% change from a year ago — best for index
+    series like CPI), and yoy_change (absolute change from a year ago — this is
+    percentage points for rate series like unemployment). Either may be None
+    if unavailable.
+    """
+
+    async def _series_snapshot(s: dict[str, Any]) -> dict[str, Any]:
+        sid = s.get("series_id")
+        try:
+            # Latest level, YoY % change (pc1) and YoY absolute change (ch1),
+            # all fetched concurrently.
+            level, yoy_pct, yoy_abs = await asyncio.gather(
+                fred.get_observations(sid, sort_order="desc", limit=1),
+                fred.get_observations(sid, sort_order="desc", limit=1, units="pc1"),
+                fred.get_observations(sid, sort_order="desc", limit=1, units="ch1"),
+            )
+        except FredAPIError as exc:
+            # Keep one failing series from sinking the whole snapshot.
+            return {"series_id": sid, "title": s.get("title"), "error": str(exc)}
+        latest = level[0] if level else None
+        pct = yoy_pct[0] if yoy_pct else None
+        chg = yoy_abs[0] if yoy_abs else None
+        return {
+            "series_id": sid,
+            "title": s.get("title"),
+            "units": s.get("units"),
+            "frequency": s.get("frequency"),
+            "latest_value": latest["value"] if latest else None,
+            "latest_date": latest["date"] if latest else None,
+            "yoy_pct_change": pct["value"] if pct else None,
+            "yoy_change": chg["value"] if chg else None,
+        }
+
+    try:
+        series_list = await fred.search(topic, limit=top_n)
+    except FredAPIError as exc:
+        return {"error": str(exc)}
+    if not series_list:
+        return {"topic": topic, "count": 0, "series": [], "note": "No matching series found."}
+
+    snapshots = await asyncio.gather(*[_series_snapshot(s) for s in series_list])
+    as_of = max(
+        (s["latest_date"] for s in snapshots if s.get("latest_date")), default=None
+    )
+    return {"topic": topic, "as_of": as_of, "count": len(snapshots), "series": snapshots}
 
 
 def main() -> None:
