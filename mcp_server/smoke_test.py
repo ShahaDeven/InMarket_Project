@@ -57,6 +57,11 @@ async def run(target) -> None:
             "get_category_snapshot", {"topic": "labor market", "top_n": 4}
         )
         print(" ", _unwrap(snapshot))
+        print()
+
+        print("get_demand_pulse():")
+        pulse = await client.call_tool("get_demand_pulse", {})
+        print(" ", _unwrap(pulse))
 
 
 def main() -> None:

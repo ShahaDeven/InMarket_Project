@@ -28,7 +28,7 @@ Three layers, deployed as **two containers** (one shared image):
    └──────────────────────┼──────────────────────────────────────┘
                           │  Streamable HTTP  (internal network)
    ┌──────────────────────▼───────────────────────────────────────┐
-   │            FastMCP server  →  5 FRED tools                   │  mcp_server container
+   │            FastMCP server  →  6 FRED tools                   │  mcp_server container
    │                      │                                       │  (not published)
    └──────────────────────┼───────────────────────────────────────┘
                           │  HTTPS REST
@@ -53,6 +53,7 @@ Three layers, deployed as **two containers** (one shared image):
 | `search_series(keyword)` | Find FRED series by topic when the ID is unknown. |
 | `compare_series(id1, id2, start_date, end_date)` | Two series over the same window (relationships). |
 | `get_category_snapshot(topic, top_n)` | A multi-indicator "state of X" overview — top series for a topic, each with latest value + YoY change (uses FRED's native `pc1`/`ch1` transforms). |
+| `get_demand_pulse(months_back)` | Composite read on whether consumer demand is strengthening or weakening — a fixed set of demand indicators each tagged improving/deteriorating/flat, plus an overall pulse label (pure arithmetic, no LLM). |
 
 ---
 
@@ -170,7 +171,7 @@ All configuration is via environment variables (loaded from `.env`):
 ```
 Inmarket/
 ├── mcp_server/
-│   ├── server.py          # FastMCP server: 5 FRED tools
+│   ├── server.py          # FastMCP server: 6 FRED tools
 │   ├── fred_client.py     # async FRED REST client (httpx)
 │   └── smoke_test.py
 ├── agent/
@@ -199,7 +200,7 @@ Implemented:
 
 - **Secrets never committed or baked in** — `.env` is gitignored and excluded by
   `.dockerignore`; keys are injected at runtime via Compose env interpolation.
-- **Least-privilege tools** — all 5 MCP tools are *read-only* FRED lookups; no
+- **Least-privilege tools** — all 6 MCP tools are *read-only* FRED lookups; no
   write/delete/shell/filesystem access (OWASP LLM "Excessive Agency").
 - **No SSRF** — the MCP server only ever calls a fixed FRED host; no
   user-supplied URLs.

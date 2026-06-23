@@ -11,6 +11,7 @@ be unit-tested on its own. The only secret it needs is FRED_API_KEY.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any, Optional
 
@@ -120,6 +121,53 @@ class FredClient:
                 }
             )
         return observations
+
+    async def get_latest_changes(
+        self, series_id: str, months_back: int = 12
+    ) -> dict[str, Any]:
+        """Latest observation plus its change over `months_back` months.
+
+        Shared by the snapshot/pulse tools so the per-series fetch logic lives
+        in one place. For the standard 12-month window it uses FRED's native
+        transforms (`pc1` = YoY percent change, `ch1` = YoY absolute change);
+        for any other window it computes the change from the raw observations
+        (assumes a monthly series). Missing values ("." in FRED) surface as None.
+
+        Returns: latest_value, latest_date, yoy_pct_change, yoy_change.
+        """
+        if months_back == 12:
+            level, pct, chg = await asyncio.gather(
+                self.get_observations(series_id, sort_order="desc", limit=1),
+                self.get_observations(series_id, sort_order="desc", limit=1, units="pc1"),
+                self.get_observations(series_id, sort_order="desc", limit=1, units="ch1"),
+            )
+            latest = level[0] if level else None
+            return {
+                "latest_value": latest["value"] if latest else None,
+                "latest_date": latest["date"] if latest else None,
+                "yoy_pct_change": pct[0]["value"] if pct else None,
+                "yoy_change": chg[0]["value"] if chg else None,
+            }
+
+        # Custom window: compare the latest point to the one `months_back` back.
+        window = await self.get_observations(
+            series_id, sort_order="desc", limit=months_back + 1
+        )
+        latest = window[0] if window else None
+        prior = window[months_back] if len(window) > months_back else None
+        latest_v = latest["value"] if latest else None
+        prior_v = prior["value"] if prior else None
+        pct_change = abs_change = None
+        if latest_v is not None and prior_v is not None:
+            abs_change = round(latest_v - prior_v, 4)
+            if prior_v != 0:
+                pct_change = round((latest_v - prior_v) / prior_v * 100, 4)
+        return {
+            "latest_value": latest_v,
+            "latest_date": latest["date"] if latest else None,
+            "yoy_pct_change": pct_change,
+            "yoy_change": abs_change,
+        }
 
     async def search(self, keyword: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search FRED series by free-text keyword, ranked by popularity."""

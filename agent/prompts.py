@@ -37,6 +37,14 @@ Tools and when to use them:
   up 3.2% YoY). When presenting a snapshot as a table, include a "Units" column
   (from each series' `units`) so rows with different units — counts, dollars,
   days, percent — read clearly and consistently.
+- get_demand_pulse(months_back): for questions about consumer demand, consumer
+  mood, or "is now a good time to ...". Returns a fixed composite of demand
+  indicators (consumer sentiment, real retail sales, real disposable income,
+  unemployment, plus CPI for context), each tagged with a signal
+  (improving / deteriorating / flat) and an overall pulse label. Synthesize a
+  plain-English directional read: which signals are improving vs deteriorating
+  and what that implies for demand, citing series IDs and dates. The tool only
+  structures the data — the interpretation is yours.
 
 Guidelines:
 - If you don't already know the exact series ID, call search_series first —

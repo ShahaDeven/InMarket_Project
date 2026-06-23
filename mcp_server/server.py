@@ -170,28 +170,16 @@ async def get_category_snapshot(topic: str, top_n: int = 6) -> dict:
     async def _series_snapshot(s: dict[str, Any]) -> dict[str, Any]:
         sid = s.get("series_id")
         try:
-            # Latest level, YoY % change (pc1) and YoY absolute change (ch1),
-            # all fetched concurrently.
-            level, yoy_pct, yoy_abs = await asyncio.gather(
-                fred.get_observations(sid, sort_order="desc", limit=1),
-                fred.get_observations(sid, sort_order="desc", limit=1, units="pc1"),
-                fred.get_observations(sid, sort_order="desc", limit=1, units="ch1"),
-            )
+            changes = await fred.get_latest_changes(sid)
         except FredAPIError as exc:
             # Keep one failing series from sinking the whole snapshot.
             return {"series_id": sid, "title": s.get("title"), "error": str(exc)}
-        latest = level[0] if level else None
-        pct = yoy_pct[0] if yoy_pct else None
-        chg = yoy_abs[0] if yoy_abs else None
         return {
             "series_id": sid,
             "title": s.get("title"),
             "units": s.get("units"),
             "frequency": s.get("frequency"),
-            "latest_value": latest["value"] if latest else None,
-            "latest_date": latest["date"] if latest else None,
-            "yoy_pct_change": pct["value"] if pct else None,
-            "yoy_change": chg["value"] if chg else None,
+            **changes,  # latest_value, latest_date, yoy_pct_change, yoy_change
         }
 
     try:
@@ -206,6 +194,104 @@ async def get_category_snapshot(topic: str, top_n: int = 6) -> dict:
         (s["latest_date"] for s in snapshots if s.get("latest_date")), default=None
     )
     return {"topic": topic, "as_of": as_of, "count": len(snapshots), "series": snapshots}
+
+
+# Curated demand-pulse series with polarity. CPI is context-only (not scored).
+_DEMAND_PULSE_SERIES = [
+    {"series_id": "UMCSENT", "title": "Consumer Sentiment", "polarity": "positive"},
+    {"series_id": "RRSFS", "title": "Real Retail & Food Services Sales", "polarity": "positive"},
+    {"series_id": "DSPIC96", "title": "Real Disposable Personal Income", "polarity": "positive"},
+    {"series_id": "UNRATE", "title": "Unemployment Rate", "polarity": "negative"},
+    {"series_id": "CPIAUCSL", "title": "CPI (All Urban Consumers)", "polarity": "context"},
+]
+# Deadband: |YoY %| below this counts as "flat" rather than a directional signal.
+_DEMAND_FLAT_BAND = 0.5
+
+
+def _demand_signal(yoy_pct: Optional[float], polarity: str) -> Optional[str]:
+    """Classify a YoY change as improving/deteriorating/flat, adjusted for
+    polarity (e.g. a rising UNRATE is deteriorating). Context series are not
+    scored. Pure arithmetic — no interpretation.
+    """
+    if polarity == "context":
+        return "context"
+    if yoy_pct is None:
+        return None
+    effective = yoy_pct if polarity == "positive" else -yoy_pct
+    if effective > _DEMAND_FLAT_BAND:
+        return "improving"
+    if effective < -_DEMAND_FLAT_BAND:
+        return "deteriorating"
+    return "flat"
+
+
+@mcp.tool
+async def get_demand_pulse(months_back: int = 12) -> dict:
+    """Composite read on whether U.S. consumer demand is strengthening or weakening.
+
+    Use this for questions about consumer demand, consumer mood, or "is now a
+    good time to ...". It fetches a fixed, curated set of demand indicators and
+    tags each with a directional signal, plus an overall pulse label. This tool
+    only fetches and classifies data with simple arithmetic — it does NOT
+    interpret; the plain-English narrative is your job.
+
+    Args:
+        months_back: YoY comparison window in months (default 12). 12 uses
+            FRED's native year-over-year transform.
+
+    Returns:
+        - `series`: one entry per indicator with series_id, title, latest_value,
+          date, yoy_pct, polarity, and signal in {improving, deteriorating,
+          flat} (CPI is "context", not scored).
+        - `summary`: counts of improving vs deteriorating signals and an overall
+          `pulse` label (strengthening / softening / mixed) derived purely from
+          those counts.
+    """
+    months_back = max(1, min(months_back, 120))
+
+    async def _one(cfg: dict[str, str]) -> dict[str, Any]:
+        sid = cfg["series_id"]
+        try:
+            changes = await fred.get_latest_changes(sid, months_back=months_back)
+        except FredAPIError as exc:
+            return {
+                "series_id": sid, "title": cfg["title"],
+                "polarity": cfg["polarity"], "error": str(exc),
+            }
+        yoy = changes["yoy_pct_change"]
+        return {
+            "series_id": sid,
+            "title": cfg["title"],
+            "latest_value": changes["latest_value"],
+            "date": changes["latest_date"],
+            "yoy_pct": yoy,
+            "polarity": cfg["polarity"],
+            "signal": _demand_signal(yoy, cfg["polarity"]),
+        }
+
+    series = await asyncio.gather(*[_one(c) for c in _DEMAND_PULSE_SERIES])
+
+    improving = sum(1 for s in series if s.get("signal") == "improving")
+    deteriorating = sum(1 for s in series if s.get("signal") == "deteriorating")
+    flat = sum(1 for s in series if s.get("signal") == "flat")
+    if improving > deteriorating:
+        pulse = "strengthening"
+    elif deteriorating > improving:
+        pulse = "softening"
+    else:
+        pulse = "mixed"
+
+    return {
+        "months_back": months_back,
+        "as_of": max((s["date"] for s in series if s.get("date")), default=None),
+        "series": series,
+        "summary": {
+            "improving": improving,
+            "deteriorating": deteriorating,
+            "flat": flat,
+            "pulse": pulse,
+        },
+    }
 
 
 def main() -> None:
