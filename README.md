@@ -86,7 +86,7 @@ Three layers, deployed as **two containers** (one shared image):
 
 ```bash
 git clone <your-repo-url>
-cd Inmarket
+cd InMarket_Project
 
 # 1. Create your .env from the template and paste in your keys
 #    (PowerShell)  Copy-Item .env.example .env
@@ -118,7 +118,7 @@ Stop with `Ctrl+C`, or `docker compose down`.
 ## Run locally without Docker (dev workflow)
 
 ```powershell
-cd Inmarket
+cd InMarket_Project
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1          # bash: source .venv/bin/activate
 pip install -r requirements.txt
@@ -146,6 +146,41 @@ python -m mcp_server.smoke_test
 python -m mcp_server.smoke_test http://127.0.0.1:8000/mcp/
 # Full agent, end-to-end (MCP server must be running)
 python -m agent.smoke_test
+```
+
+---
+
+## Evaluation
+
+A small eval harness ([`eval/`](eval/)) checks that the agent gives **correct,
+grounded** answers — not just plausible-sounding ones:
+
+- **L1 — routing:** did the agent call the right tool/series for the question?
+- **L2 — grounding:** are the stated numbers actually correct? Ground truth is
+  resolved **live** by calling the MCP tools (which hit FRED), so the suite never
+  goes stale — each check asserts the real value *and* the series ID appear in
+  the answer, and the demand case asserts the agent's verdict matches
+  `get_demand_pulse`'s deterministic `pulse` label.
+
+Run it (MCP server must be running):
+
+```powershell
+python -m eval.run_eval
+```
+
+Latest run:
+
+```
+CASE                        L1 ROUTING  L2 GROUNDING  DETAIL
+current_unemployment        PASS        PASS          UNRATE=4.3 id:OK val:OK
+consumer_sentiment_trend    PASS        PASS          UMCSENT=49.8 id:OK val:OK
+unemployment_vs_inflation   PASS        PASS          UNRATE=4.3 ...; CPIAUCSL=333.98 ...
+labor_market_snapshot       PASS        N/A
+demand_pulse                PASS        PASS          pulse=softening OK
+mortgage_rate_now           PASS        PASS          MORTGAGE30US=6.47 id:OK val:OK
+
+L1 routing:   6/6 passed
+L2 grounding: 5/5 passed (excludes N/A)
 ```
 
 ---
@@ -183,6 +218,9 @@ Inmarket/
 │   ├── app.py             # Flask app + POST /chat
 │   ├── templates/index.html
 │   └── static/{style.css, chat.js}
+├── eval/                  # agent eval — routing + grounding checks
+│   ├── cases.py
+│   └── run_eval.py
 ├── Dockerfile             # one image for both services
 ├── docker-compose.yml     # mcp_server (internal) + web (:5000)
 ├── .dockerignore
@@ -221,6 +259,9 @@ Implemented:
 - **Pinned & audited dependencies** — all direct deps are pinned to exact
   versions and the Docker base image is pinned by digest; `pip-audit` reports no
   known CVEs (OWASP LLM03 / A06). Re-check with `pip-audit -r requirements.txt`.
+- **"Not financial advice" disclaimer** — a standing UI disclaimer marks answers
+  as informational FRED data, not financial or investment advice; the system
+  prompt also forbids giving investment advice (OWASP LLM09 — misinformation).
 
 Planned hardening (tracked against OWASP Web + LLM Top 10):
 

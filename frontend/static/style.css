@@ -280,6 +280,16 @@ body::before {
 .composer__send:active { transform: translateY(1px); }
 .composer__send:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Disclaimer ─────────────────────────────────────────────────── */
+.disclaimer {
+  margin: 0;
+  padding: 0 0 14px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 /* ── Typing indicator ───────────────────────────────────────────── */
 .typing { display: inline-flex; gap: 5px; padding: 4px 0; }
 .typing i {
